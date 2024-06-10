@@ -1,7 +1,8 @@
-use std::collections::{HashMap, HashSet};
+use rust_decimal_macros::dec;
 use std::path::Path;
 use std::str::Split;
 use std::{env, fs};
+use rust_decimal::Decimal;
 
 fn main() {
     let args : Vec<String> = env::args().collect();
@@ -9,10 +10,8 @@ fn main() {
         println!("Usage: fat_piggy_bank base-expense-file current-expense-file")
     }
 
-    let base_expenses : Vec<CostItem> = load_expenses(&args[1]);
+    let baseline_expenses : Vec<CostItem> = load_expenses(&args[1]);
     let current_expenses : Vec<CostItem> = load_expenses(&args[2]);
-
- 
 }
 
 fn load_expenses(path: &str) -> Vec<CostItem> {
@@ -25,10 +24,19 @@ fn load_expenses(path: &str) -> Vec<CostItem> {
     get_items(lines, "Kategorie", "Částka v měně účtu")
 }
 
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 struct CostItem {
     tag : String,
-    amount : usize
+    amount : Decimal
+}
+
+impl CostItem {
+    pub fn new(tag: &str, amount: Decimal) -> Self {
+        CostItem {
+            tag: tag.to_string(),
+            amount : amount
+        }       
+    } 
 }
 
 fn get_items(lines : Vec<&str>, tag_col_name: &str, amount_col_name: &str) -> Vec<CostItem> {
@@ -48,16 +56,58 @@ fn get_items(lines : Vec<&str>, tag_col_name: &str, amount_col_name: &str) -> Ve
     items
 }
 
+fn compare_expenses(baseline: Vec<CostItem>, current: Vec<CostItem>) -> Vec<CostItem> {
+    let mut comparison : Vec<CostItem> = vec![];
+    for expense in baseline.iter() {
+        let current_expense : Decimal = match current.iter().find(|x| x.tag == expense.tag) {
+            Some(item) => item.amount,
+            None => dec!(0)
+        };
+        comparison.push(CostItem::new(&expense.tag, current_expense - expense.amount));
+    }
+
+    let new_expenses = current.iter().filter(|x| !baseline.iter().any(|y| y.tag == x.tag));
+    for expense in new_expenses {
+        comparison.push(expense.clone());
+    }
+
+    comparison.sort_by(|x, y|  y.amount.cmp(&x.amount));
+    comparison
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-
+    use rust_decimal_macros::dec;
+    
     #[test]
     fn parse_provided_expense_data() {
         let data = [ "tag, amount",  "food, 75"].into_iter().collect();
 
         let items : Vec<CostItem> = get_items(data, "tag", "amount");
 
-        assert_eq!(items.contains(&CostItem { tag : String::from("food"), amount : 75 }), true);
+        assert_eq!(items.contains(&CostItem { tag : String::from("food"), amount : dec!(75) }), true);
+    }
+
+    #[test] 
+    fn expenses_comparison_order_from_worst_to_best() {
+        let base = [
+                CostItem::new("food", dec!(75)),
+                CostItem::new("home", dec!(1055.6)),
+                CostItem::new("other", dec!(100))
+            ].into_iter().collect();
+
+        let current = [
+                CostItem::new("food", dec!(140.5)),
+                CostItem::new("home", dec!(1000)),
+                CostItem::new("sport", dec!(125))
+            ].into_iter().collect();
+
+        let result : Vec<CostItem> = compare_expenses(base, current);
+
+        assert_eq!(result[0], CostItem::new("sport", dec!(125)));
+        assert_eq!(result[1], CostItem::new("food", dec!(65.5)));
+        assert_eq!(result[2], CostItem::new("home", dec!(-55.6)));
+        assert_eq!(result[3], CostItem::new("other", dec!(-100)));
     }
 }
