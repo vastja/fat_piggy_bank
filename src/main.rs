@@ -12,6 +12,11 @@ fn main() {
 
     let baseline_expenses : Vec<CostItem> = load_expenses(&args[1]);
     let current_expenses : Vec<CostItem> = load_expenses(&args[2]);
+
+    let comparison : Vec<CostItem> = compare_expenses(baseline_expenses, current_expenses);
+    for expense_comparison in comparison {
+        println!("Difference for '{}' was {} CZK.", expense_comparison.tag, expense_comparison.amount)
+    }
 }
 
 fn load_expenses(path: &str) -> Vec<CostItem> {
