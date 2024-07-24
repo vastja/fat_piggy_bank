@@ -4,6 +4,7 @@ use std::path::Path;
 use std::str::Split;
 use std::{env, fs};
 
+mod engine;
 mod view;
 
 fn main() {
@@ -136,4 +137,3 @@ mod tests {
         assert_eq!(result[3], CostItem::new("other", dec!(-100)));
     }
 }
-
