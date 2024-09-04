@@ -66,9 +66,8 @@ fn parse_expression(token: &Token) -> Box<dyn Block> {
     if let Some(for_each_block) = ForEachBlock::from(&token) {
         return Box::new(for_each_block);
     }
-    // Todo
-    Box::new(TextBlock {
-        buffer: token.buffer.clone(),
+    Box::new(VariableBlock {
+        variable_name: token.buffer.clone(),
     })
 }
 
@@ -122,5 +121,15 @@ impl ForEachBlock {
             true => Some(parts.try_into().unwrap()),
             false => None,
         }
+    }
+}
+
+struct VariableBlock {
+    variable_name: String,
+}
+
+impl Block for VariableBlock {
+    fn render(&self) -> String {
+        format!("variable: {}", self.variable_name)
     }
 }
