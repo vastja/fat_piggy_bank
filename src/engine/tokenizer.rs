@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use super::model::Model;
 
 fn tokenize(template: &str) -> Vec<Token> {
@@ -50,6 +52,7 @@ impl Token {
 pub fn convert_to_blocks(template: &str) -> Vec<Box<dyn Block>> {
     let tokens: Vec<Token> = tokenize(template);
     let mut blocks: Vec<Box<dyn Block>> = vec![];
+    // Todo - insert into scopes
     for token in tokens {
         let block: Box<dyn Block> = match token.kind {
             Kind::Text => Box::new(TextBlock {
@@ -80,6 +83,39 @@ pub trait Block {
     fn render(&self) -> String;
 }
 
+trait Scope {
+    fn add_block(&mut self, block: Box<dyn Block>) -> ();
+}
+
+struct AnonymousBlock {
+    inner_blocks: Vec<Box<dyn Block>>,
+}
+
+impl AnonymousBlock {
+    fn new() -> Self {
+        AnonymousBlock {
+            inner_blocks: vec![],
+        }
+    }
+}
+
+impl Block for AnonymousBlock {
+    fn render(&self) -> String {
+        self.inner_blocks
+            .iter()
+            .fold(String::new(), |mut acum, block| {
+                acum.push_str(&block.render());
+                acum
+            })
+    }
+}
+
+impl Scope for AnonymousBlock {
+    fn add_block(&mut self, block: Box<dyn Block>) -> () {
+        self.inner_blocks.push(block);
+    }
+}
+
 struct TextBlock {
     buffer: String,
 }
@@ -93,11 +129,23 @@ impl Block for TextBlock {
 struct ForEachBlock {
     array_name: String,
     alias: String,
+    inner_blocks: Vec<Box<dyn Block>>,
 }
 
 impl Block for ForEachBlock {
     fn render(&self) -> String {
-        format!("foreach {} in {}", self.alias, self.array_name)
+        self.inner_blocks
+            .iter()
+            .fold(String::new(), |mut acum, block| {
+                acum.push_str(&block.render());
+                acum
+            })
+    }
+}
+
+impl Scope for ForEachBlock {
+    fn add_block(&mut self, block: Box<dyn Block>) -> () {
+        self.inner_blocks.push(block)
     }
 }
 
@@ -114,6 +162,7 @@ impl ForEachBlock {
         Some(ForEachBlock {
             array_name: array_name.to_string(),
             alias: alias.to_string(),
+            inner_blocks: vec![],
         })
     }
 
