@@ -63,9 +63,14 @@ pub fn convert_to_blocks(template: &str) -> Vec<Box<dyn Block>> {
 }
 
 fn parse_expression(token: &Token) -> Box<dyn Block> {
+    if let Some(end) = EndBlock::from(&token) {
+        return Box::new(end);
+    }
+
     if let Some(for_each_block) = ForEachBlock::from(&token) {
         return Box::new(for_each_block);
     }
+
     Box::new(VariableBlock {
         variable_name: token.buffer.clone(),
     })
@@ -131,5 +136,22 @@ struct VariableBlock {
 impl Block for VariableBlock {
     fn render(&self) -> String {
         format!("variable: {}", self.variable_name)
+    }
+}
+
+struct EndBlock {}
+
+impl Block for EndBlock {
+    fn render(&self) -> String {
+        String::from("end")
+    }
+}
+
+impl EndBlock {
+    fn from(token: &Token) -> Option<Self> {
+        match token.buffer.trim().to_lowercase().as_str() {
+            "end" => Some(EndBlock {}),
+            _ => None,
+        }
     }
 }
