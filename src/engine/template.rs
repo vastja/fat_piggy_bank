@@ -2,13 +2,13 @@ use super::model;
 use super::tokenizer;
 
 pub struct Template {
-    template: Vec<Box<dyn tokenizer::TokenBuffer>>,
+    template: Vec<Box<dyn tokenizer::Block>>,
 }
 
 impl Template {
     pub fn new(template: &str) -> Self {
         Template {
-            template: tokenizer::tokenize(template),
+            template: tokenizer::convert_to_blocks(template),
         }
     }
 

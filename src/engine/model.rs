@@ -11,7 +11,7 @@ pub struct ArrayParam {
 }
 
 pub struct Model {
-    arams: HashMap<String, String>,
+    params: HashMap<String, String>,
     array_params: HashMap<String, Vec<String>>,
 }
 
@@ -39,5 +39,9 @@ impl Model {
 
     pub fn add_array_param(&mut self, name: String, values: Vec<String>) -> () {
         self.array_params.insert(name, values);
+    }
+
+    pub fn get_array_param(&self, name: &str) -> Option<&Vec<String>> {
+        self.array_params.get(name)
     }
 }
