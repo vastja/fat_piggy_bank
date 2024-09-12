@@ -49,41 +49,62 @@ impl Token {
     }
 }
 
-pub fn convert_to_blocks(template: &str) -> Vec<Box<dyn Block>> {
+pub fn convert_to_blocks(template: &str) -> Box<dyn Scope> {
     let tokens: Vec<Token> = tokenize(template);
-    let mut blocks: Vec<Box<dyn Block>> = vec![];
-    // Todo - insert into scopes
+
+    let mut scope: Vec<Box<dyn Scope>> = vec![Box::new(AnonymousBlock::new())];
     for token in tokens {
-        let block: Box<dyn Block> = match token.kind {
-            Kind::Text => Box::new(TextBlock {
-                buffer: token.buffer.clone(),
-            }),
-            Kind::Expression => parse_expression(&token),
+        let scope_op = match token.kind {
+            Kind::Text => {
+                let block = Box::new(TextBlock {
+                    buffer: token.buffer.clone(),
+                });
+                scope.last_mut().unwrap().add_block(block);
+                ScopeOperator::Same
+            }
+            Kind::Expression => parse_expression(&token, scope.last_mut().unwrap()),
         };
-        blocks.push(block);
+
+        match scope_op {
+            ScopeOperator::Same => (),
+            ScopeOperator::New { new_scope } => scope.push(new_scope),
+            ScopeOperator::End => {
+                scope.pop();
+            }
+        }
     }
-    blocks
+    scope.pop().unwrap()
 }
 
-fn parse_expression(token: &Token) -> Box<dyn Block> {
-    if let Some(end) = EndBlock::from(&token) {
-        return Box::new(end);
+enum ScopeOperator {
+    New { new_scope: Box<dyn Scope> },
+    Same,
+    End,
+}
+
+fn parse_expression<'a>(token: &Token, scope: &mut Box<dyn Scope>) -> ScopeOperator {
+    if EndBlock::from(&token).is_some() {
+        return ScopeOperator::End;
     }
 
     if let Some(for_each_block) = ForEachBlock::from(&token) {
-        return Box::new(for_each_block);
+        let block = Box::new(for_each_block);
+        scope.add_block(block);
+        return ScopeOperator::New { new_scope: &block };
     }
 
-    Box::new(VariableBlock {
+    let block = Box::new(VariableBlock {
         variable_name: token.buffer.clone(),
-    })
+    });
+    scope.add_block(block);
+    ScopeOperator::Same
 }
 
 pub trait Block {
     fn render(&self) -> String;
 }
 
-trait Scope {
+pub trait Scope {
     fn add_block(&mut self, block: Box<dyn Block>) -> ();
 }
 
