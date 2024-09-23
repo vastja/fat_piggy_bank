@@ -13,10 +13,6 @@ impl Template {
     }
 
     pub fn substitute(&self, model: &model::Model) -> String {
-        String::from("todo")
-        // self.template.iter().fold(String::new(), |mut acum, token| {
-        //     acum.push_str(&token.render());
-        //     acum
-        //  })
+        self.template.render()
     }
 }

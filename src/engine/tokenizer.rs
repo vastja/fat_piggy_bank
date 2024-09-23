@@ -1,6 +1,5 @@
-use std::collections::HashSet;
-
-use super::model::Model;
+use core::panic;
+use std::fmt::Debug;
 
 fn tokenize(template: &str) -> Vec<Token> {
     let mut tokens: Vec<Token> = vec![Token::new(Kind::Text)];
@@ -52,7 +51,8 @@ impl Token {
 pub fn convert_to_blocks(template: &str) -> Box<dyn Scope> {
     let tokens: Vec<Token> = tokenize(template);
 
-    let mut scope: Vec<Box<dyn Scope>> = vec![Box::new(AnonymousBlock::new())];
+    let global = Scopes::Anonymous(AnonymousBlock::new());
+    let mut scope: Vec<Scopes> = vec![global];
     for token in tokens {
         let scope_op = match token.kind {
             Kind::Text => {
@@ -67,36 +67,59 @@ pub fn convert_to_blocks(template: &str) -> Box<dyn Scope> {
 
         match scope_op {
             ScopeOperator::Same => (),
-            ScopeOperator::New { new_scope } => scope.push(new_scope),
+            ScopeOperator::New(new_scope) => scope.push(new_scope),
             ScopeOperator::End => {
-                scope.pop();
+                let child_scope = scope.pop().unwrap();
+                let parent_scope = scope.last_mut().unwrap();
+                let child_block: Box<dyn Block> = match child_scope {
+                    Scopes::Anonymous(anonymous) => Box::new(anonymous),
+                    Scopes::ForEach(for_each) => Box::new(for_each),
+                };
+                parent_scope.add_block(child_block);
             }
         }
     }
-    scope.pop().unwrap()
+
+    match scope.pop().unwrap() {
+        Scopes::Anonymous(global) => Box::new(global),
+        _ => panic!("Encountered not global scope."),
+    }
 }
 
 enum ScopeOperator {
-    New { new_scope: Box<dyn Scope> },
+    New(Scopes),
     Same,
     End,
 }
 
-fn parse_expression<'a>(token: &Token, scope: &mut Box<dyn Scope>) -> ScopeOperator {
+enum Scopes {
+    Anonymous(AnonymousBlock),
+    ForEach(ForEachBlock),
+}
+
+impl Scopes {
+    fn add_block(&mut self, block: Box<dyn Block>) {
+        match self {
+            Scopes::Anonymous(anonymous) => anonymous.add_block(block),
+            Scopes::ForEach(for_each) => for_each.add_block(block),
+        }
+    }
+}
+
+fn parse_expression(token: &Token, scopes: &mut Scopes) -> ScopeOperator {
     if EndBlock::from(&token).is_some() {
         return ScopeOperator::End;
     }
 
     if let Some(for_each_block) = ForEachBlock::from(&token) {
-        let block = Box::new(for_each_block);
-        scope.add_block(block);
-        return ScopeOperator::New { new_scope: &block };
+        let for_each = for_each_block;
+        return ScopeOperator::New(Scopes::ForEach(for_each));
     }
 
     let block = Box::new(VariableBlock {
         variable_name: token.buffer.clone(),
     });
-    scope.add_block(block);
+    scopes.add_block(block);
     ScopeOperator::Same
 }
 
@@ -104,8 +127,8 @@ pub trait Block {
     fn render(&self) -> String;
 }
 
-pub trait Scope {
-    fn add_block(&mut self, block: Box<dyn Block>) -> ();
+pub trait Scope: Block {
+    fn add_block(&mut self, block: Box<dyn Block>);
 }
 
 struct AnonymousBlock {
@@ -132,7 +155,7 @@ impl Block for AnonymousBlock {
 }
 
 impl Scope for AnonymousBlock {
-    fn add_block(&mut self, block: Box<dyn Block>) -> () {
+    fn add_block(&mut self, block: Box<dyn Block>) {
         self.inner_blocks.push(block);
     }
 }
@@ -155,18 +178,18 @@ struct ForEachBlock {
 
 impl Block for ForEachBlock {
     fn render(&self) -> String {
-        self.inner_blocks
-            .iter()
-            .fold(String::new(), |mut acum, block| {
-                acum.push_str(&block.render());
-                acum
-            })
+        let header = format!("foreach {} in {}", self.alias, self.array_name);
+        let inner = self.inner_blocks.iter().fold(header, |mut acum, block| {
+            acum.push_str(&block.render());
+            acum
+        });
+        inner + "end"
     }
 }
 
 impl Scope for ForEachBlock {
-    fn add_block(&mut self, block: Box<dyn Block>) -> () {
-        self.inner_blocks.push(block)
+    fn add_block(&mut self, block: Box<dyn Block>) {
+        self.inner_blocks.push(block);
     }
 }
 
