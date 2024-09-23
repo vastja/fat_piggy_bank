@@ -1,4 +1,5 @@
-use super::model::Model;
+use core::panic;
+use std::fmt::Debug;
 
 fn tokenize(template: &str) -> Vec<Token> {
     let mut tokens: Vec<Token> = vec![Token::new(Kind::Text)];
@@ -47,37 +48,116 @@ impl Token {
     }
 }
 
-pub fn convert_to_blocks(template: &str) -> Vec<Box<dyn Block>> {
+pub fn convert_to_blocks(template: &str) -> Box<dyn Scope> {
     let tokens: Vec<Token> = tokenize(template);
-    let mut blocks: Vec<Box<dyn Block>> = vec![];
+
+    let global = Scopes::Anonymous(AnonymousBlock::new());
+    let mut scope: Vec<Scopes> = vec![global];
     for token in tokens {
-        let block: Box<dyn Block> = match token.kind {
-            Kind::Text => Box::new(TextBlock {
-                buffer: token.buffer.clone(),
-            }),
-            Kind::Expression => parse_expression(&token),
+        let scope_op = match token.kind {
+            Kind::Text => {
+                let block = Box::new(TextBlock {
+                    buffer: token.buffer.clone(),
+                });
+                scope.last_mut().unwrap().add_block(block);
+                ScopeOperator::Same
+            }
+            Kind::Expression => parse_expression(&token, scope.last_mut().unwrap()),
         };
-        blocks.push(block);
+
+        match scope_op {
+            ScopeOperator::Same => (),
+            ScopeOperator::New(new_scope) => scope.push(new_scope),
+            ScopeOperator::End => {
+                let child_scope = scope.pop().unwrap();
+                let parent_scope = scope.last_mut().unwrap();
+                let child_block: Box<dyn Block> = match child_scope {
+                    Scopes::Anonymous(anonymous) => Box::new(anonymous),
+                    Scopes::ForEach(for_each) => Box::new(for_each),
+                };
+                parent_scope.add_block(child_block);
+            }
+        }
     }
-    blocks
+
+    match scope.pop().unwrap() {
+        Scopes::Anonymous(global) => Box::new(global),
+        _ => panic!("Encountered not global scope."),
+    }
 }
 
-fn parse_expression(token: &Token) -> Box<dyn Block> {
-    if let Some(end) = EndBlock::from(&token) {
-        return Box::new(end);
+enum ScopeOperator {
+    New(Scopes),
+    Same,
+    End,
+}
+
+enum Scopes {
+    Anonymous(AnonymousBlock),
+    ForEach(ForEachBlock),
+}
+
+impl Scopes {
+    fn add_block(&mut self, block: Box<dyn Block>) {
+        match self {
+            Scopes::Anonymous(anonymous) => anonymous.add_block(block),
+            Scopes::ForEach(for_each) => for_each.add_block(block),
+        }
+    }
+}
+
+fn parse_expression(token: &Token, scopes: &mut Scopes) -> ScopeOperator {
+    if EndBlock::from(&token).is_some() {
+        return ScopeOperator::End;
     }
 
     if let Some(for_each_block) = ForEachBlock::from(&token) {
-        return Box::new(for_each_block);
+        let for_each = for_each_block;
+        return ScopeOperator::New(Scopes::ForEach(for_each));
     }
 
-    Box::new(VariableBlock {
+    let block = Box::new(VariableBlock {
         variable_name: token.buffer.clone(),
-    })
+    });
+    scopes.add_block(block);
+    ScopeOperator::Same
 }
 
 pub trait Block {
     fn render(&self) -> String;
+}
+
+pub trait Scope: Block {
+    fn add_block(&mut self, block: Box<dyn Block>);
+}
+
+struct AnonymousBlock {
+    inner_blocks: Vec<Box<dyn Block>>,
+}
+
+impl AnonymousBlock {
+    fn new() -> Self {
+        AnonymousBlock {
+            inner_blocks: vec![],
+        }
+    }
+}
+
+impl Block for AnonymousBlock {
+    fn render(&self) -> String {
+        self.inner_blocks
+            .iter()
+            .fold(String::new(), |mut acum, block| {
+                acum.push_str(&block.render());
+                acum
+            })
+    }
+}
+
+impl Scope for AnonymousBlock {
+    fn add_block(&mut self, block: Box<dyn Block>) {
+        self.inner_blocks.push(block);
+    }
 }
 
 struct TextBlock {
@@ -93,11 +173,23 @@ impl Block for TextBlock {
 struct ForEachBlock {
     array_name: String,
     alias: String,
+    inner_blocks: Vec<Box<dyn Block>>,
 }
 
 impl Block for ForEachBlock {
     fn render(&self) -> String {
-        format!("foreach {} in {}", self.alias, self.array_name)
+        let header = format!("foreach {} in {}", self.alias, self.array_name);
+        let inner = self.inner_blocks.iter().fold(header, |mut acum, block| {
+            acum.push_str(&block.render());
+            acum
+        });
+        inner + "end"
+    }
+}
+
+impl Scope for ForEachBlock {
+    fn add_block(&mut self, block: Box<dyn Block>) {
+        self.inner_blocks.push(block);
     }
 }
 
@@ -114,6 +206,7 @@ impl ForEachBlock {
         Some(ForEachBlock {
             array_name: array_name.to_string(),
             alias: alias.to_string(),
+            inner_blocks: vec![],
         })
     }
 
