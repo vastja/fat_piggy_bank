@@ -192,10 +192,10 @@ impl Block for ForEachBlock {
             }
         };
 
-        for (i, param) in array_param.iter().enumerate() {
+        for i in 0..array_param.len() {
             model.set_alias(Alias {
                 name: self.alias.clone(),
-                target: param.clone(),
+                target: self.array_name.clone(),
                 identifier: Identifier::Index(i),
             });
             let inner: Result<String, String> =
