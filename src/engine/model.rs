@@ -17,9 +17,9 @@ pub struct Model {
 }
 
 pub struct Alias {
-    name: String,
-    target: String,
-    identifier: Identifier,
+    pub name: String,
+    pub target: String,
+    pub identifier: Identifier,
 }
 
 pub enum Identifier {
@@ -78,7 +78,7 @@ impl Model {
     }
 
     pub fn set_alias(&mut self, alias: Alias) {
-        if let Some(existing_alias) = self.aliases.iter().find(|&x| x.name == alias.name) {
+        if let Some(existing_alias) = self.aliases.iter_mut().find(|x| x.name == alias.name) {
             *existing_alias = alias;
         } else {
             self.aliases.push(alias);
@@ -86,7 +86,7 @@ impl Model {
     }
 
     pub fn remove_alias(&mut self, alias: Alias) {
-        if let Some(index) = self.aliases.iter().position(|&x| x.name == alias.name) {
+        if let Some(index) = self.aliases.iter_mut().position(|x| x.name == alias.name) {
             self.aliases.remove(index);
         }
     }
