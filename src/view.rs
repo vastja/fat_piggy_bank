@@ -4,7 +4,7 @@ use std::path::Path;
 use super::engine::model;
 use super::engine::template;
 
-pub fn render(template: &str, model: &model::Model) -> String {
+pub fn render(template: &str, model: &mut model::Model) -> String {
     if !Path::exists(Path::new(template)) {
         panic!("Template {} does not exist.", template)
     }
@@ -21,7 +21,7 @@ mod tests {
 
     #[test]
     fn array_template_substitution() {
-        let model = model::Model::new_with_params(
+        let mut model = model::Model::new_with_params(
             vec![],
             vec![model::ArrayParam {
                 name: String::from("items"),
@@ -29,7 +29,7 @@ mod tests {
             }],
         );
 
-        let result = render("./src/templates/comparison.html", &model);
+        let result = render("./src/templates/comparison.html", &mut model);
 
         insta::assert_snapshot!(result)
     }

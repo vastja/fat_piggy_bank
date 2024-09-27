@@ -1,3 +1,6 @@
+use crate::view::render;
+
+use super::model::{Alias, Identifier, Model};
 use core::panic;
 use std::fmt::Debug;
 
@@ -117,14 +120,14 @@ fn parse_expression(token: &Token, scopes: &mut Scopes) -> ScopeOperator {
     }
 
     let block = Box::new(VariableBlock {
-        variable_name: token.buffer.clone(),
+        variable_name: token.buffer.clone().trim().to_string(),
     });
     scopes.add_block(block);
     ScopeOperator::Same
 }
 
 pub trait Block {
-    fn render(&self) -> String;
+    fn render(&self, model: &mut Model) -> Result<String, String>;
 }
 
 pub trait Scope: Block {
@@ -144,12 +147,12 @@ impl AnonymousBlock {
 }
 
 impl Block for AnonymousBlock {
-    fn render(&self) -> String {
+    fn render(&self, model: &mut Model) -> Result<String, String> {
         self.inner_blocks
             .iter()
-            .fold(String::new(), |mut acum, block| {
-                acum.push_str(&block.render());
-                acum
+            .try_fold(String::new(), |mut acum, block| {
+                acum.push_str(&block.render(model)?);
+                Ok(acum)
             })
     }
 }
@@ -165,8 +168,8 @@ struct TextBlock {
 }
 
 impl Block for TextBlock {
-    fn render(&self) -> String {
-        self.buffer.clone()
+    fn render(&self, model: &mut Model) -> Result<String, String> {
+        Result::Ok(self.buffer.clone())
     }
 }
 
@@ -177,13 +180,34 @@ struct ForEachBlock {
 }
 
 impl Block for ForEachBlock {
-    fn render(&self) -> String {
-        let header = format!("foreach {} in {}", self.alias, self.array_name);
-        let inner = self.inner_blocks.iter().fold(header, |mut acum, block| {
-            acum.push_str(&block.render());
-            acum
-        });
-        inner + "end"
+    fn render(&self, model: &mut Model) -> Result<String, String> {
+        let mut block_render = String::new();
+        let array_param = match model.get_array_param(&self.array_name) {
+            Some(param) => param.clone(),
+            None => {
+                return Err(format!(
+                    "Array parameter '{}' not found in current scope.",
+                    self.array_name
+                ))
+            }
+        };
+
+        for i in 0..array_param.len() {
+            model.set_alias(Alias {
+                name: self.alias.clone(),
+                target: self.array_name.clone(),
+                identifier: Identifier::Index(i),
+            });
+            let inner: Result<String, String> =
+                self.inner_blocks
+                    .iter()
+                    .try_fold(String::new(), |mut acum, block| {
+                        acum.push_str(&block.render(model)?);
+                        Ok(acum)
+                    });
+            block_render.push_str(&inner?);
+        }
+        Ok(block_render)
     }
 }
 
@@ -198,7 +222,7 @@ impl ForEachBlock {
         let header: String = token.buffer.clone();
         let parts: Option<[&str; 4]> = ForEachBlock::parse_header(&header);
 
-        let (array_name, alias) = match parts {
+        let (alias, array_name) = match parts {
             Some(parts) => (parts[1], parts[3]),
             None => return None,
         };
@@ -216,7 +240,10 @@ impl ForEachBlock {
             && parts[0].to_lowercase() == "foreach"
             && parts[2].to_lowercase() == "in";
         match is_header {
-            true => Some(parts.try_into().unwrap()),
+            true => {
+                let trimmed: Vec<&str> = parts.iter().map(|x| x.trim()).collect();
+                Some(trimmed.try_into().unwrap())
+            }
             false => None,
         }
     }
@@ -227,18 +254,18 @@ struct VariableBlock {
 }
 
 impl Block for VariableBlock {
-    fn render(&self) -> String {
-        format!("variable: {}", self.variable_name)
+    fn render(&self, model: &mut Model) -> Result<String, String> {
+        match model.get_param(&self.variable_name) {
+            Some(variable) => Ok(variable.clone()),
+            None => Err(format!(
+                "Variable with name '{}' not found in current scope.",
+                self.variable_name
+            )),
+        }
     }
 }
 
 struct EndBlock {}
-
-impl Block for EndBlock {
-    fn render(&self) -> String {
-        String::from("end")
-    }
-}
 
 impl EndBlock {
     fn from(token: &Token) -> Option<Self> {

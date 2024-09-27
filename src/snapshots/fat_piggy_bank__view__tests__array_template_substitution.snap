@@ -9,8 +9,10 @@ expression: result
     <title>Comparison</title>
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <body>
-        foreach items in item
-            <div> variable:  item.name  </div>
-        end
+        
+            <div> one </div>
+        
+            <div> two </div>
+        
     </body>
 </html>

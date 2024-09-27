@@ -12,7 +12,8 @@ impl Template {
         }
     }
 
-    pub fn substitute(&self, model: &model::Model) -> String {
-        self.template.render()
+    pub fn substitute(&self, model: &mut model::Model) -> String {
+        // todo - return result
+        self.template.render(model).expect("Todo")
     }
 }
