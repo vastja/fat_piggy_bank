@@ -1,18 +1,12 @@
-use std::{collections::HashMap, usize};
+use std::{collections::HashMap, error::Error, usize};
 
 pub struct Param {
     pub name: String,
-    pub value: String,
-}
-
-pub struct ArrayParam {
-    pub name: String,
-    pub value: Vec<String>,
+    pub value: Value,
 }
 
 pub struct Model {
-    params: HashMap<String, String>,
-    array_params: HashMap<String, Vec<String>>,
+    params: HashMap<String, Value>,
     aliases: Vec<Alias>,
 }
 
@@ -27,47 +21,77 @@ pub enum Identifier {
     Index(usize),
 }
 
+pub enum Value {
+    Simple(String),
+    List(Vec<Value>),
+    Complex(Vec<(String, Value)>),
+}
+
+impl Value {
+    pub fn to_string(&self) -> String {
+        match self {
+            Value::Simple(value) => value.clone(),
+            Value::List(list) => {
+                let converted = list
+                    .iter()
+                    .map(|x| x.to_string())
+                    .collect::<Vec<String>>()
+                    .join(",");
+                format!("[ {} ]", converted)
+            }
+            Value::Complex(complex) => {
+                let converted = complex
+                    .iter()
+                    .map(|(name, value)| format!("{} : {}", name.clone(), value.to_string()))
+                    .collect::<Vec<String>>()
+                    .join(",");
+                format!("{{ {} }}", converted)
+            }
+        }
+    }
+}
+
+impl Clone for Value {
+    fn clone(&self) -> Value {
+        match self {
+            Value::Simple(value) => Value::Simple(value.clone()),
+            Value::List(list) => Value::List(list.clone()),
+            Value::Complex(complex) => Value::Complex(complex.clone()),
+        }
+    }
+}
+
 impl Model {
     pub fn new() -> Self {
         Self {
             params: HashMap::new(),
-            array_params: HashMap::new(),
             aliases: vec![],
         }
     }
 
-    pub fn new_with_params(params: Vec<Param>, array_params: Vec<ArrayParam>) -> Self {
+    pub fn new_with_params(params: Vec<Param>) -> Self {
         Self {
             params: params.into_iter().map(|x| (x.name, x.value)).collect(),
-            array_params: array_params
-                .into_iter()
-                .map(|x| (x.name, x.value))
-                .collect(),
             aliases: vec![],
         }
     }
 
-    pub fn add_param(&mut self, name: String, value: String) {
+    pub fn add_param(&mut self, name: String, value: Value) {
         self.params.insert(name, value);
     }
 
-    pub fn add_array_param(&mut self, name: String, values: Vec<String>) {
-        self.array_params.insert(name, values);
-    }
-
-    pub fn get_array_param(&self, name: &str) -> Option<&Vec<String>> {
-        self.array_params.get(name)
-    }
-
-    pub fn get_param(&self, name: &str) -> Option<&String> {
+    pub fn get_param(&self, name: &str) -> Option<&Value> {
         let param = self.params.get(name);
         if param.is_none() {
             if let Some(alias) = self.aliases.iter().find(|&x| x.name == name) {
                 return match alias.identifier {
                     Identifier::None => self.params.get(&alias.target),
                     Identifier::Index(index) => {
-                        if let Some(array_param) = self.array_params.get(&alias.target) {
-                            return array_param.get(index);
+                        if let Some(target_param) = self.params.get(&alias.target) {
+                            return match target_param {
+                                Value::List(list) => list.get(index),
+                                _ => None,
+                            };
                         }
                         Option::None
                     }

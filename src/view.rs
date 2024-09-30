@@ -17,17 +17,16 @@ pub fn render(template: &str, model: &mut model::Model) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use insta;
 
     #[test]
     fn array_template_substitution() {
-        let mut model = model::Model::new_with_params(
-            vec![],
-            vec![model::ArrayParam {
-                name: String::from("items"),
-                value: vec![String::from("one"), String::from("two")],
-            }],
-        );
+        let mut model = model::Model::new_with_params(vec![model::Param {
+            name: String::from("items"),
+            value: model::Value::List(vec![
+                model::Value::Simple(String::from("one")),
+                model::Value::Simple(String::from("two")),
+            ]),
+        }]);
 
         let result = render("./src/templates/comparison.html", &mut model);
 
