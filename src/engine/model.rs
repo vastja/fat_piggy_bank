@@ -1,3 +1,4 @@
+use std::fmt;
 use std::{collections::HashMap, error::Error, usize};
 
 pub struct Param {
@@ -27,25 +28,25 @@ pub enum Value {
     Complex(Vec<(String, Value)>),
 }
 
-impl Value {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for Value {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Value::Simple(value) => value.clone(),
+            Value::Simple(value) => write!(f, "{}", value),
             Value::List(list) => {
                 let converted = list
                     .iter()
                     .map(|x| x.to_string())
                     .collect::<Vec<String>>()
                     .join(",");
-                format!("[ {} ]", converted)
+                write!(f, "[ {} ]", converted)
             }
             Value::Complex(complex) => {
                 let converted = complex
                     .iter()
-                    .map(|(name, value)| format!("{} : {}", name.clone(), value.to_string()))
+                    .map(|(name, value)| format!("{} : {}", name.clone(), value))
                     .collect::<Vec<String>>()
                     .join(",");
-                format!("{{ {} }}", converted)
+                write!(f, "{{ {} }}", converted)
             }
         }
     }
