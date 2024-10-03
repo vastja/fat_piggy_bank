@@ -1,6 +1,6 @@
 ---
 source: src/view.rs
-assertion_line: 34
+assertion_line: 42
 expression: result
 ---
 <!DOCTYPE html>
@@ -9,6 +9,7 @@ expression: result
     <title>Comparison</title>
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <body>
+        Header content.
         
             <div> one </div>
         

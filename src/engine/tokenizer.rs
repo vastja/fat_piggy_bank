@@ -1,6 +1,6 @@
 use crate::view::render;
 
-use super::model::{Alias, Identifier, Model};
+use super::model::{Alias, Identifier, Model, Value};
 use core::panic;
 use std::fmt::Debug;
 
@@ -182,8 +182,11 @@ struct ForEachBlock {
 impl Block for ForEachBlock {
     fn render(&self, model: &mut Model) -> Result<String, String> {
         let mut block_render = String::new();
-        let array_param = match model.get_array_param(&self.array_name) {
-            Some(param) => param.clone(),
+        let array_param: Vec<Value> = match model.get_param(&self.array_name) {
+            Some(param) => match param {
+                Value::List(list) => list.clone(),
+                _ => return Err(format!("Parameter '{}' has invalid type.", self.array_name)),
+            },
             None => {
                 return Err(format!(
                     "Array parameter '{}' not found in current scope.",
@@ -256,7 +259,7 @@ struct VariableBlock {
 impl Block for VariableBlock {
     fn render(&self, model: &mut Model) -> Result<String, String> {
         match model.get_param(&self.variable_name) {
-            Some(variable) => Ok(variable.clone()),
+            Some(variable) => Ok(variable.to_string()),
             None => Err(format!(
                 "Variable with name '{}' not found in current scope.",
                 self.variable_name
