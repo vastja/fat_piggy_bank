@@ -1,5 +1,6 @@
-use std::fmt;
+use std::collections::binary_heap::Iter;
 use std::{collections::HashMap, error::Error, usize};
+use std::{fmt, string};
 
 pub struct Param {
     pub name: String,
@@ -25,7 +26,12 @@ pub enum Identifier {
 pub enum Value {
     Simple(String),
     List(Vec<Value>),
-    Complex(Vec<(String, Value)>),
+    Complex(Vec<Member>),
+}
+
+pub struct Member {
+    pub key: String,
+    pub value: Value,
 }
 
 impl fmt::Display for Value {
@@ -43,11 +49,20 @@ impl fmt::Display for Value {
             Value::Complex(complex) => {
                 let converted = complex
                     .iter()
-                    .map(|(name, value)| format!("{} : {}", name.clone(), value))
+                    .map(|member| format!("{} : {}", member.key.clone(), member.value))
                     .collect::<Vec<String>>()
                     .join(",");
                 write!(f, "{{ {} }}", converted)
             }
+        }
+    }
+}
+
+impl Clone for Member {
+    fn clone(&self) -> Member {
+        Member {
+            key: self.key.clone(),
+            value: self.value.clone(),
         }
     }
 }
@@ -81,25 +96,40 @@ impl Model {
         self.params.insert(name, value);
     }
 
-    pub fn get_param(&self, name: &str) -> Option<&Value> {
-        let param = self.params.get(name);
-        if param.is_none() {
-            if let Some(alias) = self.aliases.iter().find(|&x| x.name == name) {
-                return match alias.identifier {
-                    Identifier::None => self.params.get(&alias.target),
-                    Identifier::Index(index) => {
-                        if let Some(target_param) = self.params.get(&alias.target) {
-                            return match target_param {
-                                Value::List(list) => list.get(index),
-                                _ => None,
-                            };
-                        }
-                        Option::None
-                    }
-                };
+    fn get_alias(&self, alias_name: &str) -> Option<&Value> {
+        let alias: &Alias = self.aliases.iter().find(|&x| x.name == alias_name)?;
+
+        match alias.identifier {
+            Identifier::None => self.params.get(&alias.target),
+            Identifier::Index(index) => {
+                let target_param = self.params.get(&alias.target)?;
+                match target_param {
+                    Value::List(list) => list.get(index),
+                    _ => None,
+                }
             }
         }
-        param
+    }
+
+    pub fn get_param(&self, name: &str) -> Option<&Value> {
+        let mut name_parts = name.split('.');
+        let first_name = name_parts.next().unwrap();
+
+        let mut param: &Value = match self.params.get(first_name) {
+            Some(value) => value,
+            None => self.get_alias(first_name)?,
+        };
+
+        for next_name in name_parts {
+            match param {
+                Value::Complex(complex) => {
+                    param = &complex.iter().find(|x| x.key == next_name)?.value;
+                }
+                _ => return None,
+            }
+        }
+
+        Some(param)
     }
 
     pub fn set_alias(&mut self, alias: Alias) {

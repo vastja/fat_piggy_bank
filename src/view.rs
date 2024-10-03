@@ -20,13 +20,22 @@ mod tests {
 
     #[test]
     fn array_template_substitution() {
-        let mut model = model::Model::new_with_params(vec![model::Param {
-            name: String::from("items"),
-            value: model::Value::List(vec![
-                model::Value::Simple(String::from("one")),
-                model::Value::Simple(String::from("two")),
-            ]),
-        }]);
+        let mut model = model::Model::new_with_params(vec![
+            model::Param {
+                name: String::from("items"),
+                value: model::Value::List(vec![
+                    model::Value::Simple(String::from("one")),
+                    model::Value::Simple(String::from("two")),
+                ]),
+            },
+            model::Param {
+                name: String::from("info"),
+                value: model::Value::Complex(vec![model::Member {
+                    key: String::from("header"),
+                    value: model::Value::Simple(String::from("Header content.")),
+                }]),
+            },
+        ]);
 
         let result = render("./src/templates/comparison.html", &mut model);
 
