@@ -1,10 +1,12 @@
+use engine::model;
+use importer::{FileImporter, Importer};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
-use std::path::Path;
-use std::str::Split;
 use std::{env, fs};
+use view::render;
 
 mod engine;
+mod importer;
 mod view;
 
 fn main() {
@@ -13,24 +15,49 @@ fn main() {
         println!("Usage: fat_piggy_bank base-expense-file current-expense-file")
     }
 
-    let baseline_expenses: Vec<CostItem> = load_expenses(&args[1]);
-    let current_expenses: Vec<CostItem> = load_expenses(&args[2]);
-
-    let comparison: Vec<CostItem> = compare_expenses(baseline_expenses, current_expenses);
-    for expense_comparison in comparison {
-        println!(
-            "Difference for '{}' was {} CZK.",
-            expense_comparison.tag, expense_comparison.amount
-        )
-    }
+    let report: String = generate_report(&args[1], &args[2], &FileImporter {});
+    // Todo
+    fs::write("generated_report.html", report);
 }
 
-fn load_expenses(path: &str) -> Vec<CostItem> {
-    if !Path::exists(Path::new(path)) {
-        panic!("File {} does not exist.", path)
-    }
+fn generate_report<T: Importer>(baseline: &str, current: &str, importer: &T) -> String {
+    let baseline_expenses: Vec<CostItem> = load_expenses(baseline, importer);
+    let current_expenses: Vec<CostItem> = load_expenses(current, importer);
 
-    let contents: String = fs::read_to_string(path).expect("Could not read provided file.");
+    let comparison: Vec<CostItem> = compare_expenses(baseline_expenses, current_expenses);
+
+    let differences: Vec<model::Value> = comparison
+        .iter()
+        .map(|x| {
+            model::Value::Complex(vec![
+                model::Member {
+                    key: String::from("tag"),
+                    value: model::Value::Simple(x.tag.to_string()),
+                },
+                model::Member {
+                    key: String::from("amount"),
+                    value: model::Value::Simple(x.amount.to_string()),
+                },
+            ])
+        })
+        .collect();
+
+    let mut model = model::Model::new_with_params(vec![
+        model::Param {
+            name: String::from("total_difference"),
+            value: model::Value::Simple(String::from("N/A")),
+        },
+        model::Param {
+            name: String::from("differences"),
+            value: model::Value::List(differences),
+        },
+    ]);
+
+    render("templates/report.html", &mut model)
+}
+
+fn load_expenses<T: Importer>(path: &str, importer: &T) -> Vec<CostItem> {
+    let contents: String = importer.load(path).expect("Could not load expense.");
     let lines: Vec<&str> = contents.lines().skip(1).collect();
     get_items(lines, "Kategorie", "Částka v měně účtu")
 }
@@ -57,10 +84,14 @@ fn get_items(lines: Vec<&str>, tag_col_name: &str, amount_col_name: &str) -> Vec
 
     let mut items = Vec::new();
     for line in lines.iter().skip(1) {
-        let mut parts: Split<&str> = line.split(",");
+        // Todo - properly split csv file line
+        let parts: Vec<&str> = vec![];
         let item = CostItem {
-            tag: parts.nth(tag_index).unwrap().trim().to_string(),
-            amount: parts.nth(amount_index).unwrap().trim().parse().unwrap(),
+            tag: parts[tag_index].trim().to_string(),
+            amount: parts[amount_index]
+                .trim()
+                .parse()
+                .expect(parts[amount_index]),
         };
         items.push(item);
     }
@@ -94,46 +125,46 @@ fn compare_expenses(baseline: Vec<CostItem>, current: Vec<CostItem>) -> Vec<Cost
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rust_decimal_macros::dec;
+    use std::collections::HashMap;
 
     #[test]
-    fn parse_provided_expense_data() {
-        let data = ["tag, amount", "food, 75"].into_iter().collect();
+    fn array_template_substitution() {
+        let header = "Datum a čas,Kategorie,Částka v měně účtu";
+        let baseline_rows = format!("{}\n{}", header, "7/1/2024,Koloniál,\"200,00\"");
+        let current_rows = format!("{}\n{}", header, "8/1/2024,Koloniál,\"400,00\"");
+        let mut mem_importer = MemoryImporter::new();
+        mem_importer.set("baseline", &baseline_rows);
+        mem_importer.set("current", &current_rows);
 
-        let items: Vec<CostItem> = get_items(data, "tag", "amount");
-
-        assert_eq!(
-            items.contains(&CostItem {
-                tag: String::from("food"),
-                amount: dec!(75)
-            }),
-            true
-        );
+        let result: String = super::generate_report("baseline", "current", &mem_importer);
+        insta::assert_snapshot!(result)
     }
 
-    #[test]
-    fn expenses_comparison_order_from_worst_to_best() {
-        let base = [
-            CostItem::new("food", dec!(75)),
-            CostItem::new("home", dec!(1055.6)),
-            CostItem::new("other", dec!(100)),
-        ]
-        .into_iter()
-        .collect();
+    struct MemoryImporter<'a> {
+        memory: HashMap<&'a str, &'a str>,
+    }
 
-        let current = [
-            CostItem::new("food", dec!(140.5)),
-            CostItem::new("home", dec!(1000)),
-            CostItem::new("sport", dec!(125)),
-        ]
-        .into_iter()
-        .collect();
+    impl<'a> MemoryImporter<'a> {
+        fn new() -> Self {
+            MemoryImporter {
+                memory: HashMap::new(),
+            }
+        }
 
-        let result: Vec<CostItem> = compare_expenses(base, current);
+        fn set(&mut self, uri: &'a str, data: &'a str) {
+            self.memory.insert(uri, data);
+        }
+    }
 
-        assert_eq!(result[0], CostItem::new("sport", dec!(125)));
-        assert_eq!(result[1], CostItem::new("food", dec!(65.5)));
-        assert_eq!(result[2], CostItem::new("home", dec!(-55.6)));
-        assert_eq!(result[3], CostItem::new("other", dec!(-100)));
+    impl<'a> Importer for MemoryImporter<'a> {
+        fn load(&self, uri: &str) -> Result<String, std::io::Error> {
+            match self.memory.get(uri) {
+                Some(data) => Ok(data.to_string()),
+                None => Err(std::io::Error::new(
+                    std::io::ErrorKind::NotFound,
+                    "Data not set for uri.",
+                )),
+            }
+        }
     }
 }
