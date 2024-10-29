@@ -1,0 +1,22 @@
+---
+source: src/main.rs
+assertion_line: 220
+expression: result
+---
+<!DOCTYPE html>
+<html lang="en">
+    <meta charset="UTF-8">
+    <title>Report</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <body>
+        Difference: N/A
+        <table>
+        
+            <tr>
+                <td> Koloniál </td>
+                <td> 200.0 </td>
+            </tr>
+        
+        </table>
+    </body>
+</html>
