@@ -1,9 +1,10 @@
 use core::panic;
 use engine::model;
-use importer::{FileImporter, Importer};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
-use std::{env, fs, usize};
+use std::fs;
+use std::path::Path;
+use std::{env, usize};
 use unicode_segmentation::UnicodeSegmentation;
 use view::render;
 
@@ -17,14 +18,14 @@ fn main() {
         println!("Usage: fat_piggy_bank base-expense-file current-expense-file")
     }
 
-    let report: String = generate_report(&args[1], &args[2], &FileImporter {});
+    let report: String = generate_report(Path::new(&args[1]), Path::new(&args[2]));
     // Todo
     fs::write("generated_report.html", report);
 }
 
-fn generate_report<T: Importer>(baseline: &str, current: &str, importer: &T) -> String {
-    let baseline_expenses: Vec<CostItem> = load_expenses(baseline, importer);
-    let current_expenses: Vec<CostItem> = load_expenses(current, importer);
+fn generate_report(baseline: &Path, current: &Path) -> String {
+    let baseline_expenses: Vec<CostItem> = load_expenses(baseline);
+    let current_expenses: Vec<CostItem> = load_expenses(current);
 
     let comparison: Vec<CostItem> = compare_expenses(baseline_expenses, current_expenses);
 
@@ -58,8 +59,8 @@ fn generate_report<T: Importer>(baseline: &str, current: &str, importer: &T) -> 
     render("./src/templates/report.html", &mut model)
 }
 
-fn load_expenses<T: Importer>(path: &str, importer: &T) -> Vec<CostItem> {
-    let contents: String = importer.load(path).expect("Could not load expense.");
+fn load_expenses(path: &Path) -> Vec<CostItem> {
+    let contents: String = fs::read_to_string(path).expect("Could not load expense.");
     let lines: Vec<&str> = contents.lines().skip(1).collect();
     get_items(lines, "Kategorie", "Částka v měně účtu")
 }
@@ -199,46 +200,13 @@ fn compare_expenses(baseline: Vec<CostItem>, current: Vec<CostItem>) -> Vec<Cost
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashMap;
 
     #[test]
     fn array_template_substitution() {
-        let header = "Datum a čas,Kategorie,Částka v měně účtu";
-        let baseline_rows = format!("Title\n{}\n{}", header, "7/1/2024,Koloniál,\"200,00\"");
-        let current_rows = format!("Title\n{}\n{}", header, "8/1/2024,Koloniál,\"400,00\"");
-        let mut mem_importer = MemoryImporter::new();
-        mem_importer.set("baseline", &baseline_rows);
-        mem_importer.set("current", &current_rows);
-
-        let result: String = super::generate_report("baseline", "current", &mem_importer);
+        let result: String = super::generate_report(
+            Path::new("./src/test_data/baseline.csv"),
+            Path::new("./src/test_data/target.csv"),
+        );
         insta::assert_snapshot!(result)
-    }
-
-    struct MemoryImporter<'a> {
-        memory: HashMap<&'a str, &'a str>,
-    }
-
-    impl<'a> MemoryImporter<'a> {
-        fn new() -> Self {
-            MemoryImporter {
-                memory: HashMap::new(),
-            }
-        }
-
-        fn set(&mut self, uri: &'a str, data: &'a str) {
-            self.memory.insert(uri, data);
-        }
-    }
-
-    impl<'a> Importer for MemoryImporter<'a> {
-        fn load(&self, uri: &str) -> Result<String, std::io::Error> {
-            match self.memory.get(uri) {
-                Some(data) => Ok(data.to_string()),
-                None => Err(std::io::Error::new(
-                    std::io::ErrorKind::NotFound,
-                    "Data not set for uri.",
-                )),
-            }
-        }
     }
 }
