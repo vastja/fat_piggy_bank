@@ -1,6 +1,6 @@
 ---
 source: src/main.rs
-assertion_line: 210
+assertion_line: 215
 expression: result
 ---
 <!DOCTYPE html>
@@ -13,28 +13,23 @@ expression: result
         <table>
         
             <tr>
-                <td> Volný čas </td>
-                <td> 400.0 </td>
-            </tr>
-        
-            <tr>
-                <td> Koloniál </td>
-                <td> 299.5 </td>
-            </tr>
-        
-            <tr>
                 <td> Domov </td>
-                <td> 0.0 </td>
-            </tr>
-        
-            <tr>
-                <td> Domov </td>
-                <td> -100.0 </td>
+                <td> 600.0 </td>
             </tr>
         
             <tr>
                 <td> Ostatní </td>
-                <td> -200.0 </td>
+                <td> 200.0 </td>
+            </tr>
+        
+            <tr>
+                <td> Volný čas </td>
+                <td> -400.0 </td>
+            </tr>
+        
+            <tr>
+                <td> Koloniál </td>
+                <td> -899.5 </td>
             </tr>
         
         </table>

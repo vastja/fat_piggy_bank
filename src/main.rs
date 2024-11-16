@@ -2,14 +2,15 @@ use core::panic;
 use engine::model;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
+use std::collections::HashMap;
 use std::fs;
+use std::mem::take;
 use std::path::Path;
 use std::{env, usize};
 use unicode_segmentation::UnicodeSegmentation;
 use view::render;
 
 mod engine;
-mod importer;
 mod view;
 
 fn main() {
@@ -174,27 +175,31 @@ fn get_items(lines: Vec<&str>, tag_col_name: &str, amount_col_name: &str) -> Vec
 }
 
 fn compare_expenses(baseline: Vec<CostItem>, current: Vec<CostItem>) -> Vec<CostItem> {
-    let mut comparison: Vec<CostItem> = vec![];
+    let mut comparison = HashMap::<&str, Decimal>::new();
+
     for expense in baseline.iter() {
-        let current_expense: Decimal = match current.iter().find(|x| x.tag == expense.tag) {
-            Some(item) => item.amount,
-            None => dec!(0),
+        let tag = expense.tag.as_str();
+        match comparison.get(tag) {
+            Some(value) => comparison.insert(tag, value + expense.amount),
+            None => comparison.insert(tag, expense.amount),
         };
-        comparison.push(CostItem::new(
-            &expense.tag,
-            current_expense - expense.amount,
-        ));
     }
 
-    let new_expenses = current
-        .iter()
-        .filter(|x| !baseline.iter().any(|y| y.tag == x.tag));
-    for expense in new_expenses {
-        comparison.push(expense.clone());
+    for expense in current.iter() {
+        let tag = expense.tag.as_str();
+        match comparison.get(tag) {
+            Some(value) => comparison.insert(tag, value - expense.amount),
+            None => comparison.insert(tag, -expense.amount),
+        };
     }
 
-    comparison.sort_by(|x, y| y.amount.cmp(&x.amount));
-    comparison
+    let mut diff: Vec<CostItem> = comparison
+        .into_iter()
+        .map(|(key, value)| CostItem::new(key, value))
+        .collect();
+
+    diff.sort_by(|x, y| y.amount.cmp(&x.amount));
+    diff
 }
 
 #[cfg(test)]
