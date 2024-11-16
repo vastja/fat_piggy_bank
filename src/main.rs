@@ -1,10 +1,8 @@
 use core::panic;
 use engine::model;
 use rust_decimal::Decimal;
-use rust_decimal_macros::dec;
 use std::collections::HashMap;
 use std::fs;
-use std::mem::take;
 use std::path::Path;
 use std::{env, usize};
 use unicode_segmentation::UnicodeSegmentation;
@@ -20,8 +18,7 @@ fn main() {
     }
 
     let report: String = generate_report(Path::new(&args[1]), Path::new(&args[2]));
-    // Todo
-    fs::write("generated_report.html", report);
+    fs::write("generated_report.html", report).unwrap();
 }
 
 fn generate_report(baseline: &Path, current: &Path) -> String {
@@ -76,7 +73,7 @@ impl CostItem {
     pub fn new(tag: &str, amount: Decimal) -> Self {
         CostItem {
             tag: tag.to_string(),
-            amount: amount,
+            amount,
         }
     }
 }
