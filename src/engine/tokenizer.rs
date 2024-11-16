@@ -1,8 +1,5 @@
-use crate::view::render;
-
 use super::model::{Alias, Identifier, Model, Value};
 use core::panic;
-use std::fmt::Debug;
 
 fn tokenize(template: &str) -> Vec<Token> {
     let mut tokens: Vec<Token> = vec![Token::new(Kind::Text)];
@@ -110,11 +107,11 @@ impl Scopes {
 }
 
 fn parse_expression(token: &Token, scopes: &mut Scopes) -> ScopeOperator {
-    if EndBlock::from(&token).is_some() {
+    if EndBlock::from(token).is_some() {
         return ScopeOperator::End;
     }
 
-    if let Some(for_each_block) = ForEachBlock::from(&token) {
+    if let Some(for_each_block) = ForEachBlock::from(token) {
         let for_each = for_each_block;
         return ScopeOperator::New(Scopes::ForEach(for_each));
     }
@@ -168,7 +165,7 @@ struct TextBlock {
 }
 
 impl Block for TextBlock {
-    fn render(&self, model: &mut Model) -> Result<String, String> {
+    fn render(&self, _: &mut Model) -> Result<String, String> {
         Result::Ok(self.buffer.clone())
     }
 }
@@ -238,7 +235,7 @@ impl ForEachBlock {
     }
 
     fn parse_header(header: &str) -> Option<[&str; 4]> {
-        let parts: Vec<&str> = header.trim().split_whitespace().collect();
+        let parts: Vec<&str> = header.split_whitespace().collect();
         let is_header = parts.len() == 4
             && parts[0].to_lowercase() == "foreach"
             && parts[2].to_lowercase() == "in";
