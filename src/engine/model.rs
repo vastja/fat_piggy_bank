@@ -1,6 +1,5 @@
-use std::collections::binary_heap::Iter;
-use std::{collections::HashMap, error::Error, usize};
-use std::{fmt, string};
+use std::fmt;
+use std::{collections::HashMap, usize};
 
 pub struct Param {
     pub name: String,
@@ -19,8 +18,8 @@ pub struct Alias {
 }
 
 pub enum Identifier {
-    None,
     Index(usize),
+    None,
 }
 
 pub enum Value {
@@ -78,22 +77,11 @@ impl Clone for Value {
 }
 
 impl Model {
-    pub fn new() -> Self {
-        Self {
-            params: HashMap::new(),
-            aliases: vec![],
-        }
-    }
-
     pub fn new_with_params(params: Vec<Param>) -> Self {
         Self {
             params: params.into_iter().map(|x| (x.name, x.value)).collect(),
             aliases: vec![],
         }
-    }
-
-    pub fn add_param(&mut self, name: String, value: Value) {
-        self.params.insert(name, value);
     }
 
     fn get_alias(&self, alias_name: &str) -> Option<&Value> {
@@ -137,12 +125,6 @@ impl Model {
             *existing_alias = alias;
         } else {
             self.aliases.push(alias);
-        }
-    }
-
-    pub fn remove_alias(&mut self, alias: Alias) {
-        if let Some(index) = self.aliases.iter_mut().position(|x| x.name == alias.name) {
-            self.aliases.remove(index);
         }
     }
 }
