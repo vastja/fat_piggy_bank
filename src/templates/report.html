@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <body>
         Difference: {{ total_difference }}
-        <table>
+        <table id="report">
         {{ foreach diff in differences }}
             <tr>
                 <td> {{ diff.tag }} </td>
@@ -15,4 +15,11 @@
         {{ end }}
         </table>
     </body>
+    <svg
+        id="graph"
+        viewBox="0 0 300 100"
+        xmlns="http://www.w3.org/2000/svg"
+    >
+    </svg>
+    <script src="dist/index.js"></script>
 </html>
