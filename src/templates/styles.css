@@ -1,0 +1,8 @@
+#report tr:nth-child(odd) {
+    background-color: lightblue;
+}
+
+.small {
+    font: italic 5px sans-serif;
+}
+

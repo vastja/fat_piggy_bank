@@ -10,21 +10,20 @@ function main(): void {
 }
 
 function drawGraph(data: Map<string, number>): void {
-    const svg = document.getElementById("graph") as (SVGElement & HTMLElement);
-    drawLine(svg, { start: { x: 0, y: 0 }, end: { x: 0, y: 100 } });
-    drawLine(svg, { start: { x: 0, y: 50 }, end: { x: 300, y: 50 } });
+    const svg = document.getElementById("graph") as (SVGElement & SVGFitToViewBox & HTMLElement);
+    const graphInfo: GraphInfo = drawCoordinateSystemForData(svg, Array.from(data.values()));
 
-    const extremes: Extremes = findExtremes(Array.from(data.values()));
-    const scale = 50 / Math.max(Math.abs(extremes.min), Math.abs(extremes.max));
-    const barWidth = 15;
+    const space = 1;
+    const barWidth = (graphInfo.range.space - (space * data.size)) / data.size;
+
     let index = 0;
     for (let val of data.values()) {
-        const barHeight = Math.abs(val) * scale;
+        const barHeight = Math.abs(val) * graphInfo.valueScale;
         drawRectangle(svg,
             {
                 origin: {
-                    x: index * barWidth,
-                    y: val > 0 ? 50 - barHeight : 50
+                    x: space + index * (barWidth + space),
+                    y: val > 0 ? graphInfo.baseline - barHeight : graphInfo.baseline
                 },
                 width: barWidth,
                 height: barHeight
@@ -33,6 +32,29 @@ function drawGraph(data: Map<string, number>): void {
         );
         index++;
     }
+}
+
+interface GraphInfo {
+    range: { value: number; space: number };
+    baseline: number;
+    valueScale: number;
+}
+
+function drawCoordinateSystemForData(svg: SVGElement & SVGFitToViewBox, data: Array<number>): GraphInfo {
+    const baseline = svg.viewBox.baseVal.height * 0.5;
+
+    drawLine(svg, { start: { x: 0, y: 0 }, end: { x: 0, y: svg.viewBox.baseVal.height } });
+    drawLine(svg, { start: { x: 0, y: baseline }, end: { x: svg.viewBox.baseVal.width, y: baseline } });
+
+    const extremes: Extremes = findExtremes(data);
+    const valueRange = Math.max(Math.abs(extremes.min), Math.abs(extremes.max));
+    const valueScale = baseline / valueRange;
+
+    drawText(svg, valueRange.toString(), { x: 0, y: 0 });
+
+    return {
+        range: { value: valueRange, space: svg.viewBox.baseVal.width }, baseline, valueScale
+    };
 }
 
 interface Extremes {
@@ -68,7 +90,7 @@ function drawLine(svg: SVGElement, line: Line): void {
     svgLine.setAttribute('x2', line.end.x.toString());
     svgLine.setAttribute('y2', line.end.y.toString());
     svgLine.setAttribute('stroke', 'black');
-    svgLine.setAttribute('strokeWidth', '5px');
+    svgLine.setAttribute('stroke-width', '1px');
 
     svg.appendChild(svgLine);
 }
@@ -89,4 +111,16 @@ function drawRectangle(svg: SVGElement, rect: Rectangle, color: string): void {
     svgRect.setAttribute('fill', color);
 
     svg.appendChild(svgRect);
+}
+
+function drawText(svg: SVGElement, text: string, origin: Point): void {
+    const svgText = document.createElementNS("http://www.w3.org/2000/svg", "text") as SVGTextElement;
+
+    svgText.setAttribute('x', origin.x.toString());
+    svgText.setAttribute('y', origin.y.toString());
+    svgText.innerHTML = text;
+    svgText.setAttribute('alignment-baseline', 'hanging');
+    svgText.classList.add('small');
+
+    svg.appendChild(svgText);
 }
