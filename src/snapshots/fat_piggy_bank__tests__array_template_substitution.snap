@@ -1,6 +1,6 @@
 ---
 source: src/main.rs
-assertion_line: 215
+assertion_line: 107
 expression: result
 ---
 <!DOCTYPE html>
@@ -10,7 +10,7 @@ expression: result
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <body>
         Difference: N/A
-        <table>
+        <table id="report">
         
             <tr>
                 <td> Domov </td>
@@ -34,4 +34,11 @@ expression: result
         
         </table>
     </body>
+    <svg
+        id="graph"
+        viewBox="0 0 300 100"
+        xmlns="http://www.w3.org/2000/svg"
+    >
+    </svg>
+    <script src="dist/index.js"></script>
 </html>
