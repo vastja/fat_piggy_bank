@@ -1,17 +1,16 @@
-import { format } from 'path';
 import { useEffect, useState } from 'react';
 import './App.css';
 
 function App() {
-    const [text, setText] = useState<string>("");
-    const expensesService: ExpensesService = staticExpensesService;
-    const expenses: Expense[] = expensesService.fetchExpenses();
-    // useEffect(() => {
-    // const response = await fetch('/api');
-    // const data = await response.text();
-    // console.info(data);
-    // setText(data);
-    // }, []);
+    const [expenses, setExpenses] = useState<Expense[]>([]);
+    useEffect(() => {
+        const fetchExpenses = async () => {
+            const expensesService: ExpensesService = staticExpensesService;
+            const expenses: Expense[] = await expensesService.fetchExpenses();
+            setExpenses(expenses);
+        }
+        fetchExpenses();
+    }, []);
 
     return (
         <div className="App">
@@ -40,7 +39,7 @@ function App() {
 }
 
 interface ExpensesService {
-    fetchExpenses(): Expense[]
+    fetchExpenses(): Promise<Expense[]>
 }
 
 interface Expense {
@@ -51,9 +50,17 @@ interface Expense {
 }
 
 const staticExpensesService: ExpensesService = {
-    fetchExpenses(): Expense[] {
+    async fetchExpenses(): Promise<Expense[]> {
+        const response = await fetch('/api');
+        const data = await response.text();
+        return JSON.parse(data).map((x: any) => ({
+            ...x,
+            date: new Date(x.date)
+        }));
+
         return [
-            { id: 0, tag: "Grocery", amount: 100, date: new Date("2024-5-17") }
+            { id: 0, tag: "Grocery", amount: 100, date: new Date("2024-5-17") },
+            { id: 1, tag: "Other", amount: 125, date: new Date("2024-5-15") }
         ]
     }
 }

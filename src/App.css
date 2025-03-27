@@ -1,3 +1,7 @@
 .App {
   text-align: center;
 }
+
+tr:nth-child(even) {
+    background-color: lightblue;
+}
