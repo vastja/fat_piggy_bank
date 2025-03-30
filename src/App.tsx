@@ -57,16 +57,12 @@ const staticExpensesService: ExpensesService = {
             ...x,
             date: new Date(x.date)
         }));
-
-        return [
-            { id: 0, tag: "Grocery", amount: 100, date: new Date("2024-5-17") },
-            { id: 1, tag: "Other", amount: 125, date: new Date("2024-5-15") }
-        ]
     }
 }
 
 function formatDate(date: Date): string {
-    return [date.getDay(), date.getMonth(), date.getFullYear()].join('-');
+    console.log(date);
+    return [date.getDate(), date.getMonth() + 1, date.getFullYear()].join('-');
 }
 
 export default App;
