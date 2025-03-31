@@ -2,44 +2,54 @@ import { useEffect, useState } from 'react';
 import './App.css';
 
 function App() {
-    const [expenses, setExpenses] = useState<Expense[]>([]);
-    useEffect(() => {
-        const fetchExpenses = async () => {
-            const expensesService: ExpensesService = staticExpensesService;
-            const expenses: Expense[] = await expensesService.fetchExpenses();
-            setExpenses(expenses);
-        }
-        fetchExpenses();
-    }, []);
-
     return (
         <div className="App">
             <header className="App-header">
-                <table className="table-auto border-collapse w-full border">
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Tag</th>
-                            <th>Amount</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {expenses.map((expense) => (
-                            <tr key={expense.id}>
-                                <td>{formatDate(expense.date)}</td>
-                                <td>{expense.tag}</td>
-                                <td>{expense.amount}</td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+                <Expenses grouped={false} />
+                <Expenses grouped={true} />
             </header>
         </div>
     );
 }
 
+interface ExpensesProps {
+    grouped: boolean
+}
+
+const Expenses: React.FC<ExpensesProps> = ({ grouped }) => {
+    const [expenses, setExpenses] = useState<Expense[]>([]);
+    useEffect(() => {
+        const fetchExpenses = async () => {
+            const expensesService: ExpensesService = staticExpensesService;
+            const expenses: Expense[] = await expensesService.fetchExpenses(grouped);
+            setExpenses(expenses);
+        }
+        fetchExpenses();
+    }, []);
+    return (
+        <table className="table-auto border-collapse w-full border">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Tag</th>
+                    <th>Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                {expenses.map((expense) => (
+                    <tr key={expense.id}>
+                        <td>{formatDate(expense.date)}</td>
+                        <td>{expense.tag}</td>
+                        <td>{expense.amount}</td>
+                    </tr>
+                ))}
+            </tbody>
+        </table>
+    );
+}
+
 interface ExpensesService {
-    fetchExpenses(): Promise<Expense[]>
+    fetchExpenses(grouped: boolean): Promise<Expense[]>
 }
 
 interface Expense {
@@ -50,8 +60,8 @@ interface Expense {
 }
 
 const staticExpensesService: ExpensesService = {
-    async fetchExpenses(): Promise<Expense[]> {
-        const response = await fetch('/api');
+    async fetchExpenses(grouped: boolean): Promise<Expense[]> {
+        const response = await fetch(`/api/expenses?group=${grouped}`);
         const data = await response.text();
         return JSON.parse(data).map((x: any) => ({
             ...x,
