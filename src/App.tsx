@@ -1,17 +1,17 @@
 import { useEffect, useState } from 'react';
 import './App.css';
-import { Chart as ChartJS, ArcElement, Tooltip } from 'chart.js';
+import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import { Pie } from 'react-chartjs-2';
 
-ChartJS.register(ArcElement, Tooltip);
+ChartJS.register(ArcElement, Tooltip, Legend);
 
 function App() {
-    const [expenses, setExpenses] = useState<number[]>([]);
+    const [expenses, setExpenses] = useState<Expense[]>([]);
     useEffect(() => {
         const fetchExpenses = async () => {
             const expensesService: ExpensesService = staticExpensesService;
             const expenses: Expense[] = await expensesService.fetchExpenses(true);
-            setExpenses(expenses.map(x => x.amount));
+            setExpenses(expenses);
         }
         fetchExpenses();
     }, []);
@@ -19,7 +19,7 @@ function App() {
         <div className="App">
             <header className="App-header">
                 <div style={{ width: '25%', height: '25%' }}>
-                    <Pie data={{ datasets: [{ data: expenses }] }} />
+                    <Pie data={{ labels: expenses.map(x => x.tag.name), datasets: [{ data: expenses.map(x => x.amount), backgroundColor: expenses.map(x => x.tag.color) }] }} />
                 </div>
                 <Expenses grouped={false} />
                 <Expenses grouped={true} />
@@ -53,9 +53,9 @@ const Expenses: React.FC<ExpensesProps> = ({ grouped }) => {
             </thead>
             <tbody>
                 {expenses.map((expense) => (
-                    <tr key={expense.id}>
+                    <tr key={expense.id} style={{ background: expense.tag.color }}>
                         <td>{formatDate(expense.date)}</td>
-                        <td>{expense.tag}</td>
+                        <td>{expense.tag.name}</td>
                         <td>{expense.amount}</td>
                     </tr>
                 ))}
@@ -70,9 +70,14 @@ interface ExpensesService {
 
 interface Expense {
     id: number,
-    tag: string,
+    tag: Tag,
     amount: number,
     date: Date
+}
+
+interface Tag {
+    name: string,
+    color: string,
 }
 
 const staticExpensesService: ExpensesService = {
