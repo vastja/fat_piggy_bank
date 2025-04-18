@@ -1,10 +1,26 @@
 import { useEffect, useState } from 'react';
 import './App.css';
+import { Chart as ChartJS, ArcElement, Tooltip } from 'chart.js';
+import { Pie } from 'react-chartjs-2';
+
+ChartJS.register(ArcElement, Tooltip);
 
 function App() {
+    const [expenses, setExpenses] = useState<number[]>([]);
+    useEffect(() => {
+        const fetchExpenses = async () => {
+            const expensesService: ExpensesService = staticExpensesService;
+            const expenses: Expense[] = await expensesService.fetchExpenses(true);
+            setExpenses(expenses.map(x => x.amount));
+        }
+        fetchExpenses();
+    }, []);
     return (
         <div className="App">
             <header className="App-header">
+                <div style={{ width: '25%', height: '25%' }}>
+                    <Pie data={{ datasets: [{ data: expenses }] }} />
+                </div>
                 <Expenses grouped={false} />
                 <Expenses grouped={true} />
             </header>
